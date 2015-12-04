@@ -64,11 +64,10 @@ public class MyResource {
         HttpPost request = new HttpPost(authServer+"/token");
         request.setHeader("Content-type","application/json");
         request.setHeader("Accept", "application/json");
-        request.setEntity(new StringEntity("{\"token\", \""+tokenRequest.getToken()+"\"", "UTF-8"));
+        request.setEntity(new StringEntity("{\"token\": \""+tokenRequest.getToken()+"\"}", "UTF-8"));
         CloseableHttpResponse response = httpClient.execute(request);
         JsonObject jobj = new Gson().fromJson(getContextAsString(response), JsonObject.class);
         System.out.println(response);
-        System.out.println(getContextAsString(response));
         String id = jobj.get("firstname").getAsString()+" "+jobj.get("lastname").getAsString();
         String mytoken = UUID.randomUUID().toString();
         Storage storage = new Storage();
@@ -76,10 +75,12 @@ public class MyResource {
         if(storage.getCoffee(id) == null)
             storage.putCoffee(id, 0);
         storage.close();
+        TokenResponse t = new TokenResponse();
+        t.setToken(mytoken);
         return Response
                 .status(200)
                 .type(MediaType.APPLICATION_JSON)
-                .encoding("{token: \"" + mytoken + "\"}")
+                .entity(t)
                 .build();
     }
 
@@ -87,11 +88,10 @@ public class MyResource {
     @Path("buyCoffee")
     @Produces(MediaType.APPLICATION_JSON)
     @Consumes(MediaType.APPLICATION_JSON)
-    public Response buyCoffee(@QueryParam("token") String token,
-                                     @QueryParam("vendingMachine") String vendingMachine) {
+    public Response buyCoffee(BuyCoffeeRequest buyCoffeeRequest) {
 
         Storage storage = new Storage();
-        String name = storage.getNameFromToken(token);
+        String name = storage.getNameFromToken(buyCoffeeRequest.getToken());
         if(name != null) {
             Integer nbCoffees = storage.getCoffee(name);
             if(nbCoffees > 0) {
@@ -100,14 +100,14 @@ public class MyResource {
                 return Response
                         .status(200)
                         .type(MediaType.APPLICATION_JSON)
-                        .encoding("{status: \"ok\"}")
+                        .entity(StatusResponse.getOK())
                         .build();
             } else {
                 storage.close();
                 return Response
                         .status(403)
                         .type(MediaType.APPLICATION_JSON)
-                        .encoding("{status: \"ko\"}")
+                        .entity(StatusResponse.getKO())
                         .build();
             }
         }
@@ -115,7 +115,7 @@ public class MyResource {
         return Response
                 .status(401)
                 .type(MediaType.APPLICATION_JSON)
-                .encoding("{status: \"ko\"}")
+                .entity(StatusResponse.getKO())
                 .build();
     }
 
@@ -123,26 +123,24 @@ public class MyResource {
     @Path("chargeCoffee")
     @Produces(MediaType.APPLICATION_JSON)
     @Consumes(MediaType.APPLICATION_JSON)
-    public Response chargeCoffee(@QueryParam("token") String token,
-                                 @QueryParam("nbCoffee") Integer nbCoffee,
-                                 @QueryParam("vendingMachine") String vendingMachine) {
+    public Response chargeCoffee(ChargeCoffeeRequest chargeCoffeeRequest) {
 
         Storage storage = new Storage();
-        String name = storage.getNameFromToken(token);
+        String name = storage.getNameFromToken(chargeCoffeeRequest.getToken());
         if(name != null) {
-            storage.putCoffee(name, storage.getCoffee(name)+nbCoffee);
+            storage.putCoffee(name, storage.getCoffee(name)+chargeCoffeeRequest.getNbCoffee());
             storage.close();
             return Response
                     .status(200)
                     .type(MediaType.APPLICATION_JSON)
-                    .encoding("{status: \"ok\"}")
+                    .entity(StatusResponse.getOK())
                     .build();
         }
         storage.close();
         return Response
                 .status(401)
                 .type(MediaType.APPLICATION_JSON)
-                .encoding("{status: \"ko\"}")
+                .entity(StatusResponse.getKO())
                 .build();
 
     }
